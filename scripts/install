@@ -5,6 +5,7 @@ set -euo pipefail
 BOOTSTRAPPED="false"
 PRINT_DOCKER_WARNING="true"
 UPDATE_APT="true"
+BASE_OS="debian"
 INSTALL_APT_DEPS="true"
 INSTALL_AVAHI="true"
 INSTALL_YQ="true"
@@ -15,6 +16,25 @@ INSTALL_UMBREL="true"
 UMBREL_VERSION="release"
 UMBREL_REPO="getumbrel/umbrel"
 UMBREL_INSTALL_PATH="$HOME/umbrel"
+
+#####
+# Approach to be more modular:
+#
+# 1. Swap this entire thing to be more simplified and use Ansible to perform
+# the entire configuration.
+#
+# 2. Utilize vars as function pointers to update the configuration based on the
+# underlying OS
+#
+# Ultimately, we need to achieve several things:
+#  - Leverage Podman when possible
+#  - Leverage DNF
+#  - Change the install directory to be correct
+#  - Ensure we disown the container volumes (should be done by compose)
+#  - Establish a testing function
+#  - Leverage the logging capabilities to have debug verbosity
+#  - Update the systemd configuration to setup the service on Fedora
+#####
 
 # Parse arguments
 arguments=${@:-}
@@ -80,6 +100,21 @@ then
   UMBREL_INSTALL_PATH="$(echo "${arguments}" | sed 's/.*--install-path \([^ ]*\).*/\1/')"
 fi
 
+detect_os() {
+  source /etc/os-release
+  case $ID_LIKE in
+    "debian")
+      BASE_OS="debian"
+      ;;
+    "fedora")
+      BASE_OS="fedora"
+      ;;
+    *)
+      echo "${ID} which functions like ${ID_LIKE} is not supported"
+      exit 1
+  esac
+}
+
 get_umbrel_version() {
   version="${UMBREL_VERSION}"
   if [[ "${version}" = "release" ]]
@@ -100,12 +135,46 @@ update_apt() {
   sudo apt-get update --yes
 }
 
+update_dnf() {
+  sudo dnf update -y
+}
+
 install_apt_deps() {
   sudo apt-get install --yes fswatch jq rsync curl git gettext-base python3 gnupg
 }
 
+install_dnf_deps() {
+  sudo dnf install -y fswatch jq rsync curl git gettext python3 gnupg
+}
+
 install_avahi() {
-  sudo apt-get install --yes avahi-daemon avahi-discover libnss-mdns
+  case "$BASE_OS" in
+    "debian")
+      sudo apt-get install --yes avahi-daemon avahi-discover libnss-mdns
+      ;;
+    "fedora")
+      sudo dnf install -y avahi
+      ;;
+    *)
+      echo "Unsupported operating system"
+      exit 2
+  esac
+}
+
+get_system_arch() {
+  case "$(uname -p)" in
+    "x86_64")
+      return "amd64"
+    ;;
+    "aarch64")
+      return "arm64"
+      ;;
+    *)
+      echo "Unsupported system architecture $(uname -p)"
+      exit 1
+  esac
+
+  return "error"
 }
 
 install_yq() {
@@ -115,7 +184,9 @@ install_yq() {
   yq_sha256["amd64"]="c93a696e13d3076e473c3a43c06fdb98fafd30dc2f43bc771c4917531961c760"
 
   yq_version="v4.24.5"
-  system_arch=$(dpkg --print-architecture)
+  get_system_arch
+  system_arch=$?
+  #system_arch=$(dpkg --print-architecture)
   yq_binary="yq_linux_${system_arch}"
 
   # Download yq from GitHub
@@ -134,9 +205,17 @@ install_yq() {
   fi
 }
 
+install_podman() {
+  sudo dnf install -y podman
+}
+
+install_podman_compose() {
+  sudo dnf install -y podman-compose
+}
+
 install_docker() {
   # Install Docker
-   curl -fsSL https://get.docker.com | sudo sh
+  curl -fsSL https://get.docker.com | sudo sh
 }
 
 install_docker_compose() {
@@ -241,7 +320,14 @@ EOF
 
   if [[ "${UPDATE_APT}" = "true" ]]
   then
-    update_apt
+    case "$BASE_OS" in
+      "debian")
+        update_apt
+        ;;
+      "fedora")
+        update_dnf
+        ;;
+    esac
   fi
 
   if [[ "${INSTALL_APT_DEPS}" = "true" ]]
