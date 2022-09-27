@@ -210,7 +210,7 @@ install_podman() {
 }
 
 install_podman_compose() {
-  sudo dnf install -y podman-compose
+  sudo dnf install -y podman podman-docker docker-compose
 }
 
 install_docker() {
@@ -218,7 +218,28 @@ install_docker() {
   curl -fsSL https://get.docker.com | sudo sh
 }
 
+
+
 install_docker_compose() {
+  case "$BASE_OS" in
+    "debian")
+      install_docker_compose_apt 
+      ;;
+    "fedora")
+      install_docker_compose_dnf
+      ;;
+    *)
+      echo "Unsupported operating system"
+      exit 2
+  esac
+}
+
+install_docker_compose_dnf() {
+  sudo dnf install -y python3-pip libffi-dev docker-compose
+  install_podman_compose
+}
+
+install_docker_compose_apt() {
   sudo apt-get install --yes python3-pip libffi-dev
   # We need to upgrade pip (via itself) because old pip versions in some OS repos fail to install deps.
   python3 -m pip install --upgrade pip
