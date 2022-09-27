@@ -231,7 +231,39 @@ install_umbrel() {
     tar --extract --gzip --strip-components=1 --directory="${UMBREL_INSTALL_PATH}"
 }
 
+install_rootless_systemd_service() {
+    echo "
+[Unit]
+Description=Umbrel
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Restart=always
+ExecStart=/usr/bin/podman start -a aoeuaoeu
+ExecStop=/usr/bin/podman stop -t 2 aoeaoeu
+
+[Install]
+WantedBy=local.target" | sudo tee "/etc/systemd/system/umbrel-startup.service"
+    sudo chmod 0644 "/etc/systemd/system/umbrel-startup.service"
+    sudo systemctl start --now "umbrel-startup.service"
+}
+
 install_systemd_service() {
+  case "$BASE_OS" in
+    "debian")
+      install_deb_systemd_service
+      ;;
+    "fedora")
+      install_rootless_systemd_service
+      ;;
+    *)
+      echo "Unsupported operating system"
+      exit 2
+  esac
+}
+
+install_deb_systemd_service() {
 echo "
 [Unit]
 Wants=network-online.target
