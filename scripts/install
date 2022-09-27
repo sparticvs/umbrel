@@ -104,10 +104,10 @@ fi
 detect_os() {
   source /etc/os-release
   case $ID_LIKE in
-    "debian")
+    *debian*)
       BASE_OS="debian"
       ;;
-    "fedora")
+    fedora*)
       BASE_OS="fedora"
       ;;
     *)
