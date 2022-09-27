@@ -319,6 +319,9 @@ WantedBy=multi-user.target" | sudo tee "/etc/systemd/system/umbrel-startup.servi
 }
 
 main() {
+  
+  detect_os
+
   if [[ "${BOOTSTRAPPED}" = "false" ]]
   then
     bootstrap
