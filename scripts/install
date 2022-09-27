@@ -107,7 +107,7 @@ detect_os() {
     *debian*)
       BASE_OS="debian"
       ;;
-    fedora*)
+    *fedora*)
       BASE_OS="fedora"
       ;;
     *)
