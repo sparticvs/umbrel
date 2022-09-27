@@ -6,7 +6,7 @@ BOOTSTRAPPED="false"
 PRINT_DOCKER_WARNING="true"
 UPDATE_APT="true"
 BASE_OS="debian"
-INSTALL_APT_DEPS="true"
+INSTALL_PKG_DEPS="true"
 INSTALL_AVAHI="true"
 INSTALL_YQ="true"
 INSTALL_DOCKER="true"
@@ -362,9 +362,16 @@ EOF
     esac
   fi
 
-  if [[ "${INSTALL_APT_DEPS}" = "true" ]]
+  if [[ "${INSTALL_PKG_DEPS}" = "true" ]]
   then
-    install_apt_deps
+    case "$BASE_OS" in
+      "debian")
+          install_apt_deps
+          ;;
+      "fedora")
+          install_dnf_deps
+          ;;
+    esac
   fi
 
   if [[ "${INSTALL_AVAHI}" = "true" ]]
